@@ -277,6 +277,7 @@ async function fetchPrayerTimingsForCity(city){
 // ======= مسجلات مؤقتة للتنبيهات حتى لا تتكرر =======
 let scheduledTimers = []; // لتخزين setTimeout ids حتى يمكن إلغاؤها عند إعادة التوزيع
 let playedPrayers = new Set();
+startBtn.addEventListener('click', ()=>{ startDay(); });
 
 // وظيفة لتشغيل الصوت لمدة 10 ثواني مرّة واحدة لكل صلاة
 function triggerPrayerAlert(prayerName){
