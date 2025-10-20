@@ -492,7 +492,119 @@ swapBtn.addEventListener('click', ()=>{
 
 // ======= الأحداث =======
 startBtn.addEventListener('click', startDay);
-regenBtn.addEventListener('click', startDay);
+// ======= إعادة توزيع المواد اليومية مع ضمان 8 ساعات + Animation =======
+regenBtn.addEventListener('click', async ()=>{
+  if(!currentSchedule) return alert('الجدول لم يبدأ بعد.');
+
+  // 1️⃣ نختار المواد بحيث مجموعها 8 ساعات
+  const seed = (new Date()).toISOString().slice(0,10) + '_regen';
+  const pickedSubjects = pickSubjects(seed); // من الكود الأصلي → يضمن 480 دقيقة
+
+  // 2️⃣ فصل المواد الثقيلة والخفيفة
+  const heavyNames = ['إنجليزي','رياضيات','فيزياء','أحياء'];
+  const heavySubjects = pickedSubjects.filter(s=>heavyNames.includes(s.name));
+  const lightSubjects = pickedSubjects.filter(s=>!heavyNames.includes(s.name));
+
+  // 3️⃣ خلط كل مجموعة عشوائي
+  function shuffleArray(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]] = [a[j],a[i]];
+    }
+    return a;
+  }
+  const shuffledHeavy = shuffleArray(heavySubjects);
+  const shuffledLight = shuffleArray(lightSubjects);
+
+  // 4️⃣ إعادة ترتيب بالتناوب ثقيلة ↔ خفيفة
+  const newSubjects = [];
+  let hi=0, li=0;
+  for(let i=0;i<pickedSubjects.length;i++){
+    if(i%2===0){ // مواضع المواد الثقيلة
+      if(hi < shuffledHeavy.length) newSubjects.push({...shuffledHeavy[hi++]});
+      else newSubjects.push({...shuffledLight[li++]});
+    } else { // مواضع المواد الخفيفة
+      if(li < shuffledLight.length) newSubjects.push({...shuffledLight[li++]});
+      else newSubjects.push({...shuffledHeavy[hi++]});
+    }
+  }
+
+  // 5️⃣ ضبط مدة كل مادة
+  newSubjects.forEach(s=>{
+    if(heavyNames.includes(s.name)) s.dur = 120;
+    else s.dur = 60;
+  });
+
+  // 6️⃣ إعادة بناء الجدول مع حفظ توقيت البداية
+  const breakMinDefault = Number(breakMinutesInput.value) || 15;
+  let current = currentSchedule.studySlots[0].start; // بداية الجدول الحالي
+  const prayers = currentSchedule.studySlots.filter(s=>s.type==='prayer');
+  const newSchedule = [];
+
+  for(let i=0;i<newSubjects.length;i++){
+    const subj = newSubjects[i];
+    let remaining = subj.dur;
+
+    while(remaining > 0){
+      // البحث عن الصلاة التالية بعد current
+      const nextPrayer = prayers.find(p=>p.start >= current);
+      if(nextPrayer && nextPrayer.start < current + remaining){
+        // قسم الدراسة حتى الصلاة
+        const studyEnd = nextPrayer.start;
+        if(studyEnd > current){
+          newSchedule.push({type:'study', subject:subj.name, start:current, finish:studyEnd});
+          remaining -= (studyEnd - current);
+          current = studyEnd;
+        }
+        // أضف وقت الصلاة
+        newSchedule.push({...nextPrayer});
+        current += nextPrayer.finish - nextPrayer.start;
+      } else {
+        // لا صلاة ضمن الوقت المتبقي
+        const studyEnd = current + remaining;
+        newSchedule.push({type:'study', subject:subj.name, start:current, finish:studyEnd});
+        current = studyEnd;
+        remaining = 0;
+      }
+    }
+
+    // إضافة استراحة بعد المادة إذا ليس آخر مادة
+    if(i < newSubjects.length-1){
+      newSchedule.push({type:'break', start:current, finish:current+breakMinDefault});
+      current += breakMinDefault;
+    }
+  }
+
+  // 7️⃣ تحديث currentSchedule
+  currentSchedule.studySlots = newSchedule;
+
+  // 8️⃣ إعادة رسم الجدول مع Animation
+  timelineEl.innerHTML = '';
+  const headerNote = document.createElement('div');
+  headerNote.style.color='var(--muted)';
+  headerNote.style.textAlign='center';
+  headerNote.style.padding='6px 0';
+  const now = new Date();
+  headerNote.innerText=`انطلق من: ${pad(now.getHours())}:${pad(now.getMinutes())} — مدة المذاكرة الإجمالية: 8 ساعات`;
+  timelineEl.appendChild(headerNote);
+
+  currentSchedule.studySlots.forEach(s=>{
+    let slotEl;
+    if(s.type==='study'){ 
+      slotEl = makeStudySlot(s.subject,s.start,s.finish);
+      slotEl.classList.add('highlight');
+      setTimeout(()=>slotEl.classList.remove('highlight'),800);
+    }
+    else if(s.type==='break'){ slotEl = makeBreakSlot(s.start,s.finish); }
+    else if(s.type==='prayer'){ slotEl = makePrayerSlot(s.name,s.start,s.finish); }
+    timelineEl.appendChild(slotEl);
+  });
+
+  updateSummaries();
+  alert('تم إعادة توزيع المواد اليومية بنجاح! مجموع المذاكرة 8 ساعات مع Animation والمدد الصحيحة.');
+});
+
 applyBtn.addEventListener('click',()=>{ startDay(); alert('تم تطبيق الإعدادات'); });
 
 // ======= اختيار المواد =======
@@ -519,5 +631,6 @@ function pickSubjects(seed){
   return picks;
 }
 </script>
+
 </body>
 </html>
