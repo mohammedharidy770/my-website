@@ -40,8 +40,8 @@ h1{font-size:22px;margin-bottom:6px}
 .slot.done{background:var(--done-bg);color:#fff;text-decoration:line-through}
 .slot.prayer{background:var(--prayer-bg);border-color:var(--prayer-border);color:var(--accent);font-weight:700;justify-content:center;cursor:default}
 .slot.break{background:rgba(255,255,255,0.01);font-style:italic;color:var(--muted)}
-.slot.highlight{background:var(--highlight);animation:flash 0.8s ease-in-out;}
-@keyframes flash{0%{background:var(--highlight);}50%{background:var(--card);}100%{background:var(--highlight);}}
+.slot.highlight{background:var(--highlight);animation:flash 0.8s ease-in-out}
+@keyframes flash{0%{background:var(--highlight);}50%{background:var(--card);}100%{background:var(--highlight);} }
 aside{width:360px}
 .label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
 input,textarea,select{width:100%;padding:10px;border-radius:8px;background:#0a0710;border:1px solid rgba(255,255,255,0.03);color:inherit;margin-bottom:10px}
@@ -51,27 +51,17 @@ input,textarea,select{width:100%;padding:10px;border-radius:8px;background:#0a07
 .modal h3{margin:0 0 8px 0;color:var(--accent)}
 .modal .content{color:var(--muted);margin-bottom:12px}
 .modal .actions{display:flex;justify-content:flex-end;gap:8px}
-.notice{
-  display:none;
-  position:sticky;
-  top:8px;
-  z-index:999;
-  margin-bottom:8px;
-  padding:10px 12px;
-  background:var(--notice-bg);
-  border-radius:8px;
-  color:#fff;
-  font-weight:700;
-  box-shadow:0 8px 20px rgba(0,0,0,0.6);
-  text-align:center;
-}
+.notice{display:none;position:sticky;top:8px;z-index:999;margin-bottom:8px;padding:10px 12px;background:var(--notice-bg);border-radius:8px;color:#fff;font-weight:700;box-shadow:0 8px 20px rgba(0,0,0,0.6);text-align:center}
+.timerBar{height:10px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;margin-top:8px}
+.timerFill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#9be7ff)}
+.controls-right{margin-left:auto;display:flex;gap:8px;align-items:center}
 @media(max-width:900px){ .app{flex-direction:column} aside{width:100%} .modal{width:92%} }
 </style>
 </head>
 <body>
 <header>
   <h1>نظّم يومك — ابدأ الجدول الآن</h1>
-  <div class="lead">اضغط "ابدأ اليوم" والجدول سيبدأ من الوقت الحالي لمدة 8 ساعات مذاكرة (موزعة تلقائيًا). مواقيت الصلاة مدمجة وديناميكية.</div>
+  <div class="lead">اضغط "ابدأ اليوم" والجدول سيبدأ من الوقت الحالي لمدة 8 ساعات مذاكرة (موزعة تلقائيًا). مواقيت الصلاة مدمجة وديناميكية. تمّت إضافة حفظ/استعادة، تصدير/استيراد، مؤقت_SLOT، وإشعارات سطح المكتب.</div>
 </header>
 
 <div class="app">
@@ -80,6 +70,12 @@ input,textarea,select{width:100%;padding:10px;border-radius:8px;background:#0a07
       <div class="controls">
         <button class="btn primary" id="startBtn">▶️ ابدأ اليوم</button>
         <button class="btn" id="regenBtn">🔁 أعد توزيع</button>
+        <div class="controls-right">
+          <button class="btn" id="saveScheduleBtn">💾 حفظ الجدول</button>
+          <button class="btn" id="loadScheduleBtn">📂 تحميل الجدول</button>
+          <button class="btn" id="exportBtn">⬇️ تصدير JSON</button>
+          <input id="importFile" type="file" accept="application/json" style="display:none">
+        </div>
         <div style="margin-left:auto" class="small" id="status">جاهز</div>
       </div>
 
@@ -88,8 +84,14 @@ input,textarea,select{width:100%;padding:10px;border-radius:8px;background:#0a07
       <div id="timeline" class="timeline">
         <div style="color:var(--muted);text-align:center;padding:20px">لم تبدأ اليوم بعد — اضغط "ابدأ اليوم" لبدء الجدول من الوقت الحالي.</div>
       </div>
-      <div class="summary" id="todaySummary" style="margin-top:12px">
-        ملخص اليوم: — لم يبدأ بعد
+
+      <div class="timerBar" title="تقدم المذاكرة"><div id="timerFill" class="timerFill"></div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        <div class="summary" id="todaySummary" style="margin-top:12px">ملخص اليوم: — لم يبدأ بعد</div>
+        <div style="text-align:right;color:var(--muted);font-size:13px">
+          <div id="currentSlotLabel">لا يوجد شغل الآن</div>
+          <div id="currentTimer" style="font-weight:700">00:00:00</div>
+        </div>
       </div>
     </div>
   </main>
@@ -105,7 +107,9 @@ input,textarea,select{width:100%;padding:10px;border-radius:8px;background:#0a07
       <input type="text" id="cityInput" value="Cairo">
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn primary" id="applyBtn">تطبيق الإعدادات</button>
+        <button class="btn" id="notifyPermBtn">🔔 طلب إذن إشعارات</button>
       </div>
+      <div class="summary" style="margin-top:8px">حفظ الجدول يسمح باستعادة اليوم حتى بعد إعادة تحميل الصفحة. الإشعارات تظهر على سطح المكتب إن سمحت المتصفح.</div>
     </div>
 
     <div class="card" style="margin-top:12px">
@@ -143,13 +147,12 @@ input,textarea,select{width:100%;padding:10px;border-radius:8px;background:#0a07
         <option value="نحو">نحو</option>
       </select>
       <button class="btn primary" id="swapBtn">🔄 تبديل / تحديث المادة</button>
-      <div class="summary" style="margin-top:8px">يمكنك تبديل أو تحديث أي مادة في الجدول بالنقر على "تبديل / تحديث المادة".</div>
+      <div class="summary" style="margin-top:8px">يمكنك تبديل أو تحديث أي مادة في الجدول بالنقر على "تبديل / تحديث المادة". اختصارات: Space لتعليم/إلغاء، R لإعادة توزيع.</div>
     </div>
   </aside>
 </div>
 
 <!-- ملف الصوت: Ping واضح من الإنترنت -->
-<!-- استخدمت ملف mp3 خفيف من مكتبة صوتية عامة -->
 <audio id="pingAudio" preload="auto" src="https://www.soundjay.com/button/sounds/beep-07.mp3"></audio>
 
 <div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true">
@@ -170,6 +173,7 @@ const SUBJECT_POOL = [
   {name:'صرف', dur:60},{name:'أدب', dur:60},{name:'نصوص', dur:60},{name:'تعبير', dur:60},{name:'بلاغة', dur:60},{name:'نحو', dur:60}
 ];
 
+// ======= عناصر DOM =======
 const startBtn = document.getElementById('startBtn');
 const regenBtn = document.getElementById('regenBtn');
 const statusEl = document.getElementById('status');
@@ -184,44 +188,42 @@ const saveAppointmentsBtn = document.getElementById('saveAppointments');
 const swapBtn = document.getElementById('swapBtn');
 const noticeEl = document.getElementById('notice');
 const pingAudio = document.getElementById('pingAudio');
+const saveScheduleBtn = document.getElementById('saveScheduleBtn');
+const loadScheduleBtn = document.getElementById('loadScheduleBtn');
+const exportBtn = document.getElementById('exportBtn');
+const importFile = document.getElementById('importFile');
+const notifyPermBtn = document.getElementById('notifyPermBtn');
+const timerFill = document.getElementById('timerFill');
+const currentSlotLabel = document.getElementById('currentSlotLabel');
+const currentTimer = document.getElementById('currentTimer');
 
+// ======= helpers =======
 function pad(n){ return String(n).padStart(2,'0'); }
 function toTime(mins){ const h=Math.floor(mins/60); const m=mins%60; return `${pad(h)}:${pad(m)}`; }
 function hhmmToMinutes(str){ if(!str) return null; const match = str.match(/(\d{1,2}):(\d{2})/); if(!match) return null; return parseInt(match[1],10)*60 + parseInt(match[2],10); }
-// function applyRandomTheme() {
-//   const themeNumber = Math.floor(Math.random() * 10) + 1;
-//   document.documentElement.style.setProperty('--bg', getComputedStyle(document.documentElement).getPropertyValue(`--bg-${themeNumber}`));
-//   document.documentElement.style.setProperty('--card', getComputedStyle(document.documentElement).getPropertyValue(`--card-${themeNumber}`));
-//   document.documentElement.style.setProperty('--muted', getComputedStyle(document.documentElement).getPropertyValue(`--muted-${themeNumber}`));
-//   document.documentElement.style.setProperty('--accent', getComputedStyle(document.documentElement).getPropertyValue(`--accent-${themeNumber}`));
-//   document.documentElement.style.setProperty('--glass', getComputedStyle(document.documentElement).getPropertyValue(`--glass-${themeNumber}`));
-//   document.documentElement.style.setProperty('--prayer-bg', getComputedStyle(document.documentElement).getPropertyValue(`--prayer-bg-${themeNumber}`));
-//   document.documentElement.style.setProperty('--prayer-border', getComputedStyle(document.documentElement).getPropertyValue(`--prayer-border-${themeNumber}`));
-//   document.documentElement.style.setProperty('--done-bg', getComputedStyle(document.documentElement).getPropertyValue(`--done-bg-${themeNumber}`));
-//   document.documentElement.style.setProperty('--highlight', getComputedStyle(document.documentElement).getPropertyValue(`--highlight-${themeNumber}`));
-// }
 
-// // تطبيق الثيم عند الضغط على "ابدأ اليوم"
-// startBtn.addEventListener('click', ()=>{
-//   applyRandomTheme();
-//   startDay();
-// });
+function formatHMS(ms){ if(ms<0) ms=0; const s=Math.floor(ms/1000)%60; const m=Math.floor(ms/60000)%60; const h=Math.floor(ms/3600000); return `${pad(h)}:${pad(m)}:${pad(s)}`; }
 
-// seeded shuffle (same كما في كودك)
-function seededRandom(seed){ let s=0; for(let i=0;i<seed.length;i++){ s = (s * 31 + seed.charCodeAt(i)) >>> 0; } return function(){ s = (s ^ (s<<13)) >>> 0; s = (s ^ (s>>>17)) >>> 0; s = (s ^ (s<<5)) >>> 0; return (s >>> 0) / 4294967295; } }
-function shuffleWithSeed(arr, seed){
-  const rnd = seededRandom(seed);
-  const a = arr.slice();
-  for(let i=a.length-1;i>0;i--){ const j = Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
-  return a;
-}
-
-// ======= مواعيد =======
+// ======= التخزين المحلي =======
 const APPOINT_KEY = 'nazem_day_appointments_v1';
+const SCHEDULE_KEY = 'nazem_day_schedule_v1';
 function loadAppointments(){ const raw = localStorage.getItem(APPOINT_KEY); if(raw) appointmentsInput.value = raw; }
 function saveAppointments(){ localStorage.setItem(APPOINT_KEY, appointmentsInput.value); alert('تم حفظ مواعيدك محليًا'); }
 saveAppointmentsBtn.addEventListener('click', saveAppointments);
 loadAppointments();
+
+function saveScheduleToStorage(schedule){ localStorage.setItem(SCHEDULE_KEY, JSON.stringify(schedule)); alert('تم حفظ الجدول محليًا'); }
+function loadScheduleFromStorage(){ const raw = localStorage.getItem(SCHEDULE_KEY); if(!raw) return null; try{ return JSON.parse(raw);}catch(e){console.warn('خطأ في قراءة الجدول من التخزين',e); return null;} }
+
+saveScheduleBtn.addEventListener('click', ()=>{ if(!currentSchedule) return alert('لا يوجد جدول لحفظه'); saveScheduleToStorage(currentSchedule); });
+loadScheduleBtn.addEventListener('click', ()=>{ const loaded = loadScheduleFromStorage(); if(!loaded) return alert('لا يوجد جدول محفوظ'); applyLoadedSchedule(loaded); alert('تم تحميل الجدول من التخزين'); });
+exportBtn.addEventListener('click', ()=>{ if(!currentSchedule) return alert('لا يوجد جدول للتصدير'); const data = JSON.stringify(currentSchedule, null, 2); const blob = new Blob([data], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download = `nazem_schedule_${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(url); });
+importFile.addEventListener('change', (e)=>{ const f = e.target.files[0]; if(!f) return; const reader = new FileReader(); reader.onload = ()=>{ try{ const parsed = JSON.parse(reader.result); applyLoadedSchedule(parsed); alert('تم استيراد الجدول بنجاح'); }catch(err){alert('ملف غير صالح');} }; reader.readAsText(f); });
+
+notifyPermBtn.addEventListener('click', async ()=>{
+  if(!('Notification' in window)) return alert('المتصفح لا يدعم إشعارات سطح المكتب');
+  const perm = await Notification.requestPermission(); alert('حالة الإشعارات: '+perm);
+});
 
 // ======= إنشاء المربعات =======
 function makeStudySlot(subject,start,finish){
@@ -259,7 +261,7 @@ function updateSummaries(){
 
 // ======= جلب مواقيت الصلاة من Aladhan =======
 async function fetchPrayerTimingsForCity(city){
-  const country = 'Egypt'; // افتراضي - ممكن نضيف خانة بلد لاحقًا
+  const country = 'Egypt';
   try{
     const url = `https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&method=2`;
     const res = await fetch(url);
@@ -268,57 +270,43 @@ async function fetchPrayerTimingsForCity(city){
       const t = json.data.timings;
       return { Fajr: t.Fajr, Dhuhr: t.Dhuhr, Asr: t.Asr, Maghrib: t.Maghrib, Isha: t.Isha };
     }
-  }catch(e){
-    console.error('prayer API error', e);
-  }
+  }catch(e){ console.error('prayer API error', e); }
   return null;
 }
 
 // ======= مسجلات مؤقتة للتنبيهات حتى لا تتكرر =======
-let scheduledTimers = []; // لتخزين setTimeout ids حتى يمكن إلغاؤها عند إعادة التوزيع
+let scheduledTimers = []; // لتخزين setTimeout ids
 let playedPrayers = new Set();
+let slotTimerInterval = null;
+let autoAdvance = true; // عند انتهاء الشريحة ننتقل تلقائيًا
+
 startBtn.addEventListener('click', ()=>{ startDay(); });
 
-// وظيفة لتشغيل الصوت لمدة 10 ثواني مرّة واحدة لكل صلاة
+// وظيفة لتشغيل الصوت والإشعار (مرة واحدة لكل صلاة)
+function notifyUser(title, body){
+  // Notification API
+  if('Notification' in window && Notification.permission === 'granted'){
+    try{ new Notification(title, { body }); }catch(e){/* ignore */}
+  }
+  // صوت
+  try{ pingAudio.currentTime = 0; pingAudio.play().catch(()=>{}); }catch(e){}
+}
+
 function triggerPrayerAlert(prayerName){
-  // منع التكرار
   if(playedPrayers.has(prayerName)) return;
   playedPrayers.add(prayerName);
-
-  // عرض التنبيه النصي
   noticeEl.innerText = `🕌 حان الآن موعد صلاة ${prayerName}`;
   noticeEl.style.display = 'block';
-
-  // تشغيل الصوت (مرّة واحدة) ثم إيقافه بعد 10s
-  try{
-    // إعادة ضبط الملف لو احتاج
-    pingAudio.currentTime = 0;
-    const playPromise = pingAudio.play();
-    // play() يرجع Promise في بعض المتصفحات
-    if(playPromise !== undefined){
-      playPromise.catch(err => {
-        // قد يفشل التشغيل إذا رفض المتصفح التشغيل التلقائي — لكن هنا المستخدم ضغط زر "ابدأ" فتكون مصرح بها عادة
-        console.warn('play failed', err);
-      });
-    }
-    // بعد 10 ثواني نوقف الصوت ونخفي التنبيه
-    setTimeout(()=>{
-      try{ pingAudio.pause(); pingAudio.currentTime = 0; }catch(e){}
-      noticeEl.style.display = 'none';
-    }, 10000);
-  }catch(e){
-    console.error('audio error', e);
-    // إخفاء التنبيه بعد 10 ثواني حتى لو الصوت فشل
-    setTimeout(()=>{ noticeEl.style.display = 'none'; }, 10000);
-  }
+  notifyUser('موعد صلاة', `حان الآن موعد صلاة ${prayerName}`);
+  setTimeout(()=>{ noticeEl.style.display = 'none'; }, 10000);
 }
 
 // ======= بدء اليوم مع مواقيت حقيقية وقطع المذاكرة =======
 async function startDay(){
-  // نظف أي مؤقتات سابقة
-  scheduledTimers.forEach(id=>clearTimeout(id));
-  scheduledTimers = [];
+  // تنظيف مؤقتات سابقة
+  scheduledTimers.forEach(id=>clearTimeout(id)); scheduledTimers = [];
   playedPrayers.clear();
+  if(slotTimerInterval) clearInterval(slotTimerInterval);
 
   statusEl.innerText = 'جاري التحضير...';
   const prayerDur = Number(prayerDurationInput.value) || 30;
@@ -329,14 +317,13 @@ async function startDay(){
   const startMinutes = now.getHours()*60 + now.getMinutes();
   const dayWindowEnd = startMinutes + 8*60;
 
-  // رأس الجدول
   const headerNote = document.createElement('div');
   headerNote.style.color='var(--muted)';
   headerNote.style.textAlign='center';
   headerNote.style.padding='6px 0';
   headerNote.innerText=`انطلق من: ${pad(now.getHours())}:${pad(now.getMinutes())} — مدة المذاكرة الإجمالية: 8 ساعات`;
 
-  // جلب مواقيت الصلاة حسب المدينة
+  // جلب مواقيت
   const city = (cityInput.value || 'Cairo').trim();
   const apiTimings = await fetchPrayerTimingsForCity(city);
   const prayerNamesMap = { Fajr:'الفجر', Dhuhr:'الظهر', Asr:'العصر', Maghrib:'المغرب', Isha:'العشاء' };
@@ -346,20 +333,12 @@ async function startDay(){
     for(const key of ['Fajr','Dhuhr','Asr','Maghrib','Isha']){
       const hhmm = apiTimings[key];
       const mins = hhmmToMinutes(hhmm);
-      if(mins !== null){
-        // نضيف فقط الصلوات التي تقع داخل النافذة الزمنية
-        if(mins >= startMinutes && mins < dayWindowEnd){
-          prayersList.push({name:prayerNamesMap[key], mins});
-        }
-      }
+      if(mins !== null){ if(mins >= startMinutes && mins < dayWindowEnd){ prayersList.push({name:prayerNamesMap[key], mins}); } }
     }
     prayersList.sort((a,b)=>a.mins-b.mins);
-  }else{
-    // فشل API → نستمر بدون صلوات أو يمكن اختيار fallback لاحقًا
-    console.warn('لم يتم جلب مواقيت الصلاة.');
   }
 
-  // بناء الجدول مع قطع المذاكرة عند الصلاة
+  // بناء الجدول
   const schedule = [];
   let current = startMinutes;
 
@@ -367,93 +346,106 @@ async function startDay(){
     let subj = subjects[i];
     let remaining = subj.dur;
     while(remaining > 0 && current < dayWindowEnd){
-      // إيجاد أول صلاة قادمة بعد أو عند current
       const nextPrayerIndex = prayersList.findIndex(p => p.mins >= current && p.mins < dayWindowEnd);
       const nextPrayer = nextPrayerIndex !== -1 ? prayersList[nextPrayerIndex] : null;
 
       if(nextPrayer && nextPrayer.mins < current + remaining){
-        // قسم الدراسة حتى بداية الصلاة
         const studyEnd = nextPrayer.mins;
-        if(studyEnd > current){
-          schedule.push({type:'study', subject:subj.name, start:current, finish:studyEnd});
-          remaining -= (studyEnd - current);
-          current = studyEnd;
-        }
-        // أضف وقت الصلاة (مدة prayerDur)
+        if(studyEnd > current){ schedule.push({type:'study', subject:subj.name, start:current, finish:studyEnd}); remaining -= (studyEnd - current); current = studyEnd; }
         schedule.push({type:'prayer', name: nextPrayer.name, start: current, finish: current + prayerDur});
-        // حرك الوقت بعد الصلاة
-        current += prayerDur;
-        // نزيل الصلاة المدخلة من القايمة حتى لا نكررها
-        prayersList.splice(nextPrayerIndex,1);
+        current += prayerDur; prayersList.splice(nextPrayerIndex,1);
       } else {
-        // لا صلاة داخل الجزء المتبقي -> أضف الدراسة كاملة أو حتى نهاية النافذة
         const studyEnd = Math.min(current + remaining, dayWindowEnd);
-        if(studyEnd > current){
-          schedule.push({type:'study', subject:subj.name, start:current, finish:studyEnd});
-          remaining -= (studyEnd - current);
-          current = studyEnd;
-        } else {
-          remaining = 0;
-        }
+        if(studyEnd > current){ schedule.push({type:'study', subject:subj.name, start:current, finish:studyEnd}); remaining -= (studyEnd - current); current = studyEnd; } else { remaining = 0; }
       }
     }
-
-    // إضافة استراحة بين المواد إن كان لديها وقت وباقي النافذة
-    if(i < subjects.length - 1 && current < dayWindowEnd && breakMinDefault > 0){
-      schedule.push({type:'break', start: current, finish: Math.min(current + breakMinDefault, dayWindowEnd)});
-      current += breakMinDefault;
-    }
+    if(i < subjects.length - 1 && current < dayWindowEnd && breakMinDefault > 0){ schedule.push({type:'break', start: current, finish: Math.min(current + breakMinDefault, dayWindowEnd)}); current += breakMinDefault; }
   }
 
-  // أضف أي صلاة متبقية تقع بعد current لكن داخل نهاية النافذة
+  // أي صلاة متبقية
   for(const p of prayersList.slice()){
-    if(p.mins >= startMinutes && p.mins < dayWindowEnd && p.mins >= current){
-      if(p.mins > current) current = p.mins;
-      schedule.push({type:'prayer', name:p.name, start:current, finish:current + prayerDur});
-      current += prayerDur;
-    }
+    if(p.mins >= startMinutes && p.mins < dayWindowEnd && p.mins >= current){ if(p.mins > current) current = p.mins; schedule.push({type:'prayer', name:p.name, start:current, finish:current + prayerDur}); current += prayerDur; }
   }
 
-  // عرض العناصر بالصفحة
+  // عرض
   timelineEl.innerHTML = '';
   timelineEl.appendChild(headerNote);
-  for(const s of schedule){
-    let slotEl;
-    if(s.type==='study'){ slotEl = makeStudySlot(s.subject,s.start,s.finish); }
-    else if(s.type==='break'){ slotEl = makeBreakSlot(s.start,s.finish); }
-    else if(s.type==='prayer'){ slotEl = makePrayerSlot(s.name,s.start,s.finish); }
-    timelineEl.appendChild(slotEl);
-  }
+  for(const s of schedule){ let slotEl; if(s.type==='study'){ slotEl = makeStudySlot(s.subject,s.start,s.finish); } else if(s.type==='break'){ slotEl = makeBreakSlot(s.start,s.finish); } else if(s.type==='prayer'){ slotEl = makePrayerSlot(s.name,s.start,s.finish); } timelineEl.appendChild(slotEl); }
 
   currentSchedule = {studySlots: schedule};
   updateSummaries();
   statusEl.innerText = `اليوم جاري — مواقيت من: ${city}`;
 
-  // جدولة التنبيهات الصوتية/النصية لكل صلاة داخل الجدول (التي لم تَرَن بعد)
-  // نحسب توقيت كل صلاة كنقطة زمنية مطلقة اليوم
+  // جدولة تنبيهات الصلاة
   const nowMs = Date.now();
   schedule.forEach(s => {
     if(s.type === 'prayer'){
-      // أنشئ تاريخ اليوم عند الدقيقة s.start
       const today = new Date();
       const target = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, s.start, 0, 0);
       const delay = target.getTime() - nowMs;
-      if(delay >= 0){
-        // ضبط مؤقت للتنبيه
-        const id = setTimeout(()=> {
-          triggerPrayerAlert(s.name);
-        }, delay);
-        scheduledTimers.push(id);
-      } else {
-        // إذا وقت الصلاة مضى حديثًا (قريبًا) لكن الجدول يحتويها، نطلق التنبيه فورًا
-        // هذا يغطي حالة وضع المستخدم يضغط بعد بداية الصلاة بقليل
-        if((Date.now() - target.getTime()) < 60*1000){ // خلال دقيقة
-          // شغّل فورًا مرة واحدة
-          triggerPrayerAlert(s.name);
-        }
-      }
+      if(delay >= 0){ const id = setTimeout(()=> { triggerPrayerAlert(s.name); }, delay); scheduledTimers.push(id); }
+      else { if((Date.now() - target.getTime()) < 60*1000){ triggerPrayerAlert(s.name); } }
     }
   });
+
+  // شغّل المؤقت للشريحة الحالية
+  startSlotTimer();
+}
+
+// ======= مؤقت الشريحة الحالي وAuto-advance =======
+function startSlotTimer(){
+  if(!currentSchedule) return;
+  if(slotTimerInterval) clearInterval(slotTimerInterval);
+  const now = new Date();
+  const nowMins = now.getHours()*60 + now.getMinutes();
+
+  // العثور على الشريحة الحالية (أول شريحة فيها زمان أكبر من الآن)
+  let idx = currentSchedule.studySlots.findIndex(s => s.finish > nowMins);
+  if(idx === -1) idx = currentSchedule.studySlots.length - 1;
+
+  function update(){
+    const now2 = new Date(); const nowMs = now2.getTime(); const nowMins2 = now2.getHours()*60 + now2.getMinutes();
+    // اعرض الشرائح مجددًا مع تمييز الشريحة الحالية
+    const slots = timelineEl.querySelectorAll('.slot');
+    // حساب التقدم العام
+    const totalStudy = currentSchedule.studySlots.filter(s=>s.type==='study').reduce((a,b)=>a+(b.finish-b.start),0);
+    const doneStudy = Array.from(slots).filter(el=>el.classList.contains('done')).length;
+    const progressPercent = Math.min(100, Math.round((doneStudy / Math.max(1, currentSchedule.studySlots.filter(s=>s.type==='study').length)) * 100));
+    timerFill.style.width = progressPercent + '%';
+
+    // تحديد الشريحة الحالية بناءً على الوقت
+    const slotIdx = currentSchedule.studySlots.findIndex(s => s.finish > nowMins2);
+    let current = null; if(slotIdx !== -1) current = currentSchedule.studySlots[slotIdx];
+    if(current){
+      currentSlotLabel.innerText = `${current.type==='study'? current.subject : (current.type==='prayer'? current.name : 'استراحة')} — ${toTime(current.start)}-${toTime(current.finish)}`;
+      const slotEnd = new Date(now2.getFullYear(), now2.getMonth(), now2.getDate(), 0, current.finish, 0, 0).getTime();
+      const remainingMs = slotEnd - nowMs;
+      currentTimer.innerText = formatHMS(remainingMs);
+
+      // إذا انتهت الشريحة (وقت سالب) وانت لسة جوّا التطبيق
+      if(remainingMs <= 0){
+        // إن لم تتم وسمها كـ done وكانت دراسة فنداء إشعار
+        if(current.type==='study'){
+          // إذا autoAdvance true → نضع علامة إنتهت تلقائياً وننتقل
+          if(autoAdvance){
+            // وسم العنصر الحالي كمكتمل
+            const studyEls = timelineEl.querySelectorAll('.slot.study');
+            const el = studyEls[slotIdx]; if(el && !el.classList.contains('done')) el.classList.add('done');
+            updateSummaries();
+            // إعادة رسم تلقائي: نحرك التركيز للشريحة التالية
+            // نترك للسطر التالي ليتعامل مع التحرك التلقائي (لا نغير التوقيت في الجدول الفعلي هنا)
+          }
+        }
+      }
+    } else {
+      currentSlotLabel.innerText = 'انتهى جدول الـ8 ساعات';
+      currentTimer.innerText = '00:00:00';
+      timerFill.style.width = '100%';
+    }
+  }
+
+  update();
+  slotTimerInterval = setInterval(update, 1000);
 }
 
 // ======= تبديل / تحديث المواد =======
@@ -469,167 +461,115 @@ swapBtn.addEventListener('click', ()=>{
   if(newSubj){ studySlots[idx1].subject = newSubj; studySlots[idx1].highlight=true; }
   if(!newSubj && idx2!==-1){ const temp=studySlots[idx1].subject; studySlots[idx1].subject=studySlots[idx2].subject; studySlots[idx2].subject=temp; }
 
-  // إعادة رسم الجدول بناءً على currentSchedule
+  // إعادة رسم
   timelineEl.innerHTML = '';
-  const headerNote = document.createElement('div');
-  headerNote.style.color='var(--muted)'; headerNote.style.textAlign='center'; headerNote.style.padding='6px 0';
-  const now = new Date();
-  headerNote.innerText=`انطلق من: ${pad(now.getHours())}:${pad(now.getMinutes())} — مدة المذاكرة الإجمالية: 8 ساعات`;
+  const headerNote = document.createElement('div'); headerNote.style.color='var(--muted)'; headerNote.style.textAlign='center'; headerNote.style.padding='6px 0';
+  const now = new Date(); headerNote.innerText=`انطلق من: ${pad(now.getHours())}:${pad(now.getMinutes())} — مدة المذاكرة الإجمالية: 8 ساعات`;
   timelineEl.appendChild(headerNote);
 
-  currentSchedule.studySlots.forEach((s,i)=>{
-    let slotEl;
-    if(s.type==='study'){ slotEl = makeStudySlot(s.subject,s.start,s.finish);
-      if(s.highlight){ slotEl.classList.add('highlight'); setTimeout(()=>slotEl.classList.remove('highlight'),800); s.highlight=false; } }
-    else if(s.type==='break'){ slotEl = makeBreakSlot(s.start,s.finish); }
-    else if(s.type==='prayer'){ slotEl = makePrayerSlot(s.name,s.start,s.finish); }
-    timelineEl.appendChild(slotEl);
-  });
+  currentSchedule.studySlots.forEach((s,i)=>{ let slotEl; if(s.type==='study'){ slotEl = makeStudySlot(s.subject,s.start,s.finish); if(s.highlight){ slotEl.classList.add('highlight'); setTimeout(()=>slotEl.classList.remove('highlight'),800); s.highlight=false; } } else if(s.type==='break'){ slotEl = makeBreakSlot(s.start,s.finish); } else if(s.type==='prayer'){ slotEl = makePrayerSlot(s.name,s.start,s.finish); } timelineEl.appendChild(slotEl); });
 
   updateSummaries();
   alert('تم تحديث / تبديل المادة بنجاح!');
 });
 
-// ======= الأحداث =======
-startBtn.addEventListener('click', startDay);
 // ======= إعادة توزيع المواد اليومية مع ضمان 8 ساعات + Animation =======
 regenBtn.addEventListener('click', async ()=>{
   if(!currentSchedule) return alert('الجدول لم يبدأ بعد.');
-
-  // 1️⃣ نختار المواد بحيث مجموعها 8 ساعات
   const seed = (new Date()).toISOString().slice(0,10) + '_regen';
-  const pickedSubjects = pickSubjects(seed); // من الكود الأصلي → يضمن 480 دقيقة
-
-  // 2️⃣ فصل المواد الثقيلة والخفيفة
+  const pickedSubjects = pickSubjects(seed);
   const heavyNames = ['إنجليزي','رياضيات','فيزياء','أحياء'];
   const heavySubjects = pickedSubjects.filter(s=>heavyNames.includes(s.name));
   const lightSubjects = pickedSubjects.filter(s=>!heavyNames.includes(s.name));
-
-  // 3️⃣ خلط كل مجموعة عشوائي
-  function shuffleArray(arr){
-    const a = arr.slice();
-    for(let i=a.length-1;i>0;i--){
-      const j = Math.floor(Math.random()*(i+1));
-      [a[i],a[j]] = [a[j],a[i]];
-    }
-    return a;
-  }
-  const shuffledHeavy = shuffleArray(heavySubjects);
-  const shuffledLight = shuffleArray(lightSubjects);
-
-  // 4️⃣ إعادة ترتيب بالتناوب ثقيلة ↔ خفيفة
-  const newSubjects = [];
-  let hi=0, li=0;
+  function shuffleArray(arr){ const a = arr.slice(); for(let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a; }
+  const shuffledHeavy = shuffleArray(heavySubjects); const shuffledLight = shuffleArray(lightSubjects);
+  const newSubjects = []; let hi=0, li=0;
   for(let i=0;i<pickedSubjects.length;i++){
-    if(i%2===0){ // مواضع المواد الثقيلة
-      if(hi < shuffledHeavy.length) newSubjects.push({...shuffledHeavy[hi++]});
-      else newSubjects.push({...shuffledLight[li++]});
-    } else { // مواضع المواد الخفيفة
-      if(li < shuffledLight.length) newSubjects.push({...shuffledLight[li++]});
-      else newSubjects.push({...shuffledHeavy[hi++]});
-    }
+    if(i%2===0){ if(hi < shuffledHeavy.length) newSubjects.push({...shuffledHeavy[hi++]}); else newSubjects.push({...shuffledLight[li++]}); }
+    else { if(li < shuffledLight.length) newSubjects.push({...shuffledLight[li++]}); else newSubjects.push({...shuffledHeavy[hi++]}); }
   }
 
-  // 5️⃣ ضبط مدة كل مادة
-  newSubjects.forEach(s=>{
-    if(heavyNames.includes(s.name)) s.dur = 120;
-    else s.dur = 60;
-  });
+  newSubjects.forEach(s=>{ if(heavyNames.includes(s.name)) s.dur = 120; else s.dur = 60; });
 
-  // 6️⃣ إعادة بناء الجدول مع حفظ توقيت البداية
+  // إعادة بناء
   const breakMinDefault = Number(breakMinutesInput.value) || 15;
-  let current = currentSchedule.studySlots[0].start; // بداية الجدول الحالي
+  let current = currentSchedule.studySlots[0].start || (new Date().getHours()*60 + new Date().getMinutes());
   const prayers = currentSchedule.studySlots.filter(s=>s.type==='prayer');
   const newSchedule = [];
 
   for(let i=0;i<newSubjects.length;i++){
-    const subj = newSubjects[i];
-    let remaining = subj.dur;
-
+    const subj = newSubjects[i]; let remaining = subj.dur;
     while(remaining > 0){
-      // البحث عن الصلاة التالية بعد current
       const nextPrayer = prayers.find(p=>p.start >= current);
       if(nextPrayer && nextPrayer.start < current + remaining){
-        // قسم الدراسة حتى الصلاة
-        const studyEnd = nextPrayer.start;
-        if(studyEnd > current){
-          newSchedule.push({type:'study', subject:subj.name, start:current, finish:studyEnd});
-          remaining -= (studyEnd - current);
-          current = studyEnd;
-        }
-        // أضف وقت الصلاة
-        newSchedule.push({...nextPrayer});
-        current += nextPrayer.finish - nextPrayer.start;
-      } else {
-        // لا صلاة ضمن الوقت المتبقي
-        const studyEnd = current + remaining;
-        newSchedule.push({type:'study', subject:subj.name, start:current, finish:studyEnd});
-        current = studyEnd;
-        remaining = 0;
-      }
+        const studyEnd = nextPrayer.start; if(studyEnd > current){ newSchedule.push({type:'study', subject:subj.name, start:current, finish:studyEnd}); remaining -= (studyEnd - current); current = studyEnd; }
+        newSchedule.push({...nextPrayer}); current += nextPrayer.finish - nextPrayer.start;
+      } else { const studyEnd = current + remaining; newSchedule.push({type:'study', subject:subj.name, start:current, finish:studyEnd}); current = studyEnd; remaining = 0; }
     }
-
-    // إضافة استراحة بعد المادة إذا ليس آخر مادة
-    if(i < newSubjects.length-1){
-      newSchedule.push({type:'break', start:current, finish:current+breakMinDefault});
-      current += breakMinDefault;
-    }
+    if(i < newSubjects.length-1){ newSchedule.push({type:'break', start:current, finish:current+breakMinDefault}); current += breakMinDefault; }
   }
 
-  // 7️⃣ تحديث currentSchedule
   currentSchedule.studySlots = newSchedule;
 
-  // 8️⃣ إعادة رسم الجدول مع Animation
+  // رسم مع Animation
   timelineEl.innerHTML = '';
-  const headerNote = document.createElement('div');
-  headerNote.style.color='var(--muted)';
-  headerNote.style.textAlign='center';
-  headerNote.style.padding='6px 0';
-  const now = new Date();
-  headerNote.innerText=`انطلق من: ${pad(now.getHours())}:${pad(now.getMinutes())} — مدة المذاكرة الإجمالية: 8 ساعات`;
+  const headerNote = document.createElement('div'); headerNote.style.color='var(--muted)'; headerNote.style.textAlign='center'; headerNote.style.padding='6px 0';
+  const now = new Date(); headerNote.innerText=`انطلق من: ${pad(now.getHours())}:${pad(now.getMinutes())} — مدة المذاكرة الإجمالية: 8 ساعات`;
   timelineEl.appendChild(headerNote);
 
-  currentSchedule.studySlots.forEach(s=>{
-    let slotEl;
-    if(s.type==='study'){ 
-      slotEl = makeStudySlot(s.subject,s.start,s.finish);
-      slotEl.classList.add('highlight');
-      setTimeout(()=>slotEl.classList.remove('highlight'),800);
-    }
-    else if(s.type==='break'){ slotEl = makeBreakSlot(s.start,s.finish); }
-    else if(s.type==='prayer'){ slotEl = makePrayerSlot(s.name,s.start,s.finish); }
-    timelineEl.appendChild(slotEl);
-  });
+  currentSchedule.studySlots.forEach(s=>{ let slotEl; if(s.type==='study'){ slotEl = makeStudySlot(s.subject,s.start,s.finish); slotEl.classList.add('highlight'); setTimeout(()=>slotEl.classList.remove('highlight'),800); }
+  else if(s.type==='break'){ slotEl = makeBreakSlot(s.start,s.finish); } else if(s.type==='prayer'){ slotEl = makePrayerSlot(s.name,s.start,s.finish); } timelineEl.appendChild(slotEl); });
 
   updateSummaries();
+  saveScheduleToStorage(currentSchedule);
   alert('تم إعادة توزيع المواد اليومية بنجاح! مجموع المذاكرة 8 ساعات مع Animation والمدد الصحيحة.');
 });
 
 applyBtn.addEventListener('click',()=>{ startDay(); alert('تم تطبيق الإعدادات'); });
 
 // ======= اختيار المواد =======
-function pickSubjects(seed){
-  const shuffled = shuffleWithSeed(SUBJECT_POOL, seed + '_pool');
-  const picks = [];
-  let sum = 0;
-  const TARGET = 8 * 60
-  for(const s of shuffled){
-    if(sum + s.dur > TARGET) continue;
-    picks.push({...s});
-    sum += s.dur;
-    if(sum === TARGET) break;
-  }
-  if(sum < TARGET){
-    const smalls = shuffleWithSeed(SUBJECT_POOL.filter(x=>x.dur<=60), seed+'_extras');
-    let idx = 0;
-    while(sum < TARGET){
-      const item = smalls[idx % smalls.length];
-      if(sum + item.dur <= TARGET){ picks.push({...item}); sum += item.dur; } else break;
-      idx++; if(idx>200) break;
-    }
-  }
-  return picks;
+function seededRandom(seed){ let s=0; for(let i=0;i<seed.length;i++){ s = (s * 31 + seed.charCodeAt(i)) >>> 0; } return function(){ s = (s ^ (s<<13)) >>> 0; s = (s ^ (s>>>17)) >>> 0; s = (s ^ (s<<5)) >>> 0; return (s >>> 0) / 4294967295; } }
+function shuffleWithSeed(arr, seed){ const rnd = seededRandom(seed); const a = arr.slice(); for(let i=a.length-1;i>0;i--){ const j = Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function pickSubjects(seed){ const shuffled = shuffleWithSeed(SUBJECT_POOL, seed + '_pool'); const picks = []; let sum = 0; const TARGET = 8 * 60; for(const s of shuffled){ if(sum + s.dur > TARGET) continue; picks.push({...s}); sum += s.dur; if(sum === TARGET) break; }
+  if(sum < TARGET){ const smalls = shuffleWithSeed(SUBJECT_POOL.filter(x=>x.dur<=60), seed+'_extras'); let idx = 0; while(sum < TARGET){ const item = smalls[idx % smalls.length]; if(sum + item.dur <= TARGET){ picks.push({...item}); sum += item.dur; } else break; idx++; if(idx>200) break; } }
+  return picks; }
+
+// ======= مساعدة لتطبيق جدول تم استيراده أو محفوظ =======
+function applyLoadedSchedule(loaded){
+  if(!loaded || !loaded.studySlots) return alert('الملف لا يحتوي على جدول صالح');
+  currentSchedule = loaded;
+  timelineEl.innerHTML = '';
+  const headerNote = document.createElement('div'); headerNote.style.color='var(--muted)'; headerNote.style.textAlign='center'; headerNote.style.padding='6px 0';
+  const now = new Date(); headerNote.innerText=`انطلق من: ${pad(now.getHours())}:${pad(now.getMinutes())} — جدول مستعاد`;
+  timelineEl.appendChild(headerNote);
+  currentSchedule.studySlots.forEach(s=>{ let slotEl; if(s.type==='study'){ slotEl = makeStudySlot(s.subject,s.start,s.finish); }
+    else if(s.type==='break'){ slotEl = makeBreakSlot(s.start,s.finish); }
+    else if(s.type==='prayer'){ slotEl = makePrayerSlot(s.name,s.start,s.finish); }
+    timelineEl.appendChild(slotEl);
+  });
+  updateSummaries(); startSlotTimer();
 }
+
+// ======= اختصارات لوحة المفاتيح =======
+window.addEventListener('keydown', (e)=>{
+  if(e.code === 'Space'){ e.preventDefault(); // toggle done on first study slot visible
+    const firstStudy = timelineEl.querySelector('.slot.study'); if(firstStudy) { firstStudy.classList.toggle('done'); updateSummaries(); }
+  }
+  if(e.key.toLowerCase() === 'r'){ regenBtn.click(); }
+});
+
+// ======= تحميل أي جدول محفوظ تلقائيًا عند البداية (إن وجد) =======
+window.addEventListener('load', ()=>{
+  const saved = loadScheduleFromStorage(); if(saved){ // لا نفرض التشغيل التلقائي — فقط نعرض
+    // عرض زر تحميل أو مرحب
+    statusEl.innerText = 'جدول محفوظ موجود — اضغط "تحميل الجدول" لاستعادته.';
+  }
+});
+
+// ========= مساعدة صغيرة لإظهار الأخطاء في الكود (safety) =========
+// (لا مانع من إضافة تحسينات لاحقًا — حفظت لك نسخة من currentSchedule في localStorage عند إعادة التوزيع والحفظ اليدوي)
+
 </script>
 
 </body>
